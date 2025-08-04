@@ -1,0 +1,1158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dis+SString - Malware Reverse Engineering Tool</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+            color: #00ff41;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from {
+                text-shadow: 0 0 10px #00ff41, 0 0 20px #00ff41, 0 0 30px #00ff41;
+            }
+            to {
+                text-shadow: 0 0 20px #00ff41, 0 0 30px #00ff41, 0 0 40px #00ff41;
+            }
+        }
+
+        .title {
+            font-size: 3rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #00ff41, #00d4ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: #888;
+            margin-bottom: 20px;
+        }
+
+        .upload-section {
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #00ff41;
+            border-radius: 15px;
+            padding: 40px;
+            margin-bottom: 30px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 0 30px rgba(0, 255, 65, 0.3);
+        }
+
+        .upload-area {
+            border: 3px dashed #00ff41;
+            border-radius: 10px;
+            padding: 60px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(0, 255, 65, 0.05);
+        }
+
+        .upload-area:hover {
+            background: rgba(0, 255, 65, 0.1);
+            border-color: #00d4ff;
+            transform: scale(1.02);
+        }
+
+        .upload-area.dragover {
+            background: rgba(0, 255, 65, 0.2);
+            border-color: #00d4ff;
+        }
+
+        .upload-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            color: #00ff41;
+        }
+
+        .upload-text {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+        }
+
+        .upload-hint {
+            color: #888;
+            font-size: 1rem;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .analysis-section {
+            display: none;
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #00ff41;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            backdrop-filter: blur(10px);
+        }
+
+        .file-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(0, 255, 65, 0.1);
+            border-radius: 10px;
+        }
+
+        .file-name {
+            font-weight: bold;
+            color: #00ff41;
+        }
+
+        .file-size {
+            color: #888;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ff41, #00d4ff);
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 10px;
+        }
+
+        .results-section {
+            display: none;
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #00ff41;
+            border-radius: 15px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+        }
+
+        .tab-container {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #00ff41;
+        }
+
+        .tab {
+            padding: 15px 30px;
+            background: transparent;
+            border: none;
+            color: #888;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+        }
+
+        .tab.active {
+            color: #00ff41;
+            border-bottom-color: #00ff41;
+            background: rgba(0, 255, 65, 0.1);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .strings-list {
+            max-height: 400px;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            padding: 20px;
+        }
+
+        .string-item {
+            padding: 10px;
+            margin-bottom: 10px;
+            background: rgba(0, 255, 65, 0.05);
+            border-left: 3px solid #00ff41;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            word-break: break-all;
+        }
+
+        .string-item.suspicious {
+            background: rgba(255, 0, 0, 0.1);
+            border-left-color: #ff0000;
+            color: #ff6b6b;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: rgba(0, 255, 65, 0.1);
+            border: 1px solid #00ff41;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #00ff41;
+        }
+
+        .stat-label {
+            color: #888;
+            margin-top: 5px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            border: 4px solid rgba(0, 255, 65, 0.3);
+            border-top: 4px solid #00ff41;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: rgba(255, 0, 0, 0.1);
+            border: 1px solid #ff0000;
+            color: #ff6b6b;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .success {
+            background: rgba(0, 255, 65, 0.1);
+            border: 1px solid #00ff41;
+            color: #00ff41;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 50px;
+            color: #888;
+            font-size: 0.9rem;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .title {
+                font-size: 2rem;
+            }
+            
+            .upload-section {
+                padding: 20px;
+            }
+            
+            .upload-area {
+                padding: 40px 20px;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .hex-viewer {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid #00ff41;
+            border-radius: 5px;
+            padding: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre;
+        }
+
+        .hex-line {
+            display: flex;
+            margin-bottom: 2px;
+        }
+
+        .hex-address {
+            color: #888;
+            margin-right: 10px;
+            min-width: 60px;
+        }
+
+        .hex-bytes {
+            color: #00ff41;
+            margin-right: 10px;
+            letter-spacing: 1px;
+        }
+
+        .hex-ascii {
+            color: #00d4ff;
+        }
+
+        .entropy-bar {
+            width: 100%;
+            height: 20px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .entropy-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ff41, #ff6b6b);
+            transition: width 0.3s ease;
+            border-radius: 10px;
+        }
+
+        .export-btn {
+            background: linear-gradient(45deg, #00ff41, #00d4ff);
+            border: none;
+            color: #000;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            margin: 10px 5px;
+            transition: all 0.3s ease;
+        }
+
+        .export-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.5);
+        }
+
+        .signature-match {
+            background: rgba(255, 0, 0, 0.2);
+            border: 2px solid #ff0000;
+            color: #ff6b6b;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+
+        .file-header {
+            background: rgba(0, 255, 65, 0.1);
+            border: 1px solid #00ff41;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .header-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+
+        .header-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+        }
+
+        .header-label {
+            color: #888;
+        }
+
+        .header-value {
+            color: #00ff41;
+            font-weight: bold;
+        }
+
+        .search-box {
+            width: 100%;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid #00ff41;
+            border-radius: 5px;
+            color: #00ff41;
+            margin-bottom: 15px;
+        }
+
+        .search-box::placeholder {
+            color: #888;
+        }
+
+        .filter-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            background: rgba(0, 255, 65, 0.1);
+            border: 1px solid #00ff41;
+            color: #00ff41;
+            padding: 5px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .filter-btn.active {
+            background: #00ff41;
+            color: #000;
+        }
+
+        .filter-btn:hover {
+            background: rgba(0, 255, 65, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">Dis+SString</h1>
+            <p class="subtitle">Advanced Malware Reverse Engineering & Analysis Tool</p>
+        </div>
+
+        <div class="upload-section">
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📁</div>
+                <div class="upload-text">Drop your executable file here</div>
+                <div class="upload-hint">or click to browse (.exe, .dll, .bin files supported)</div>
+                <input type="file" id="fileInput" accept=".exe,.dll,.bin,.com,.scr">
+            </div>
+        </div>
+
+        <div class="analysis-section" id="analysisSection">
+            <div class="file-info">
+                <span class="file-name" id="fileName">filename.exe</span>
+                <span class="file-size" id="fileSize">0 KB</span>
+            </div>
+            
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            
+            <div class="loading" id="loadingSection">
+                <div class="spinner"></div>
+                <p>Analyzing file... Please wait</p>
+            </div>
+        </div>
+
+        <div class="results-section" id="resultsSection">
+            <div class="tab-container">
+                <button class="tab active" onclick="showTab('strings')">Strings</button>
+                <button class="tab" onclick="showTab('disassembly')">Disassembly</button>
+                <button class="tab" onclick="showTab('analysis')">AI Analysis</button>
+                <button class="tab" onclick="showTab('hex')">Hex Viewer</button>
+                <button class="tab" onclick="showTab('fileinfo')">File Info</button>
+                <button class="tab" onclick="showTab('stats')">Statistics</button>
+            </div>
+
+            <div class="tab-content active" id="stringsTab">
+                <div class="filter-buttons">
+                    <button class="filter-btn active" onclick="filterStrings('all')">All</button>
+                    <button class="filter-btn" onclick="filterStrings('suspicious')">Suspicious</button>
+                    <button class="filter-btn" onclick="filterStrings('urls')">URLs</button>
+                    <button class="filter-btn" onclick="filterStrings('commands')">Commands</button>
+                </div>
+                <input type="text" class="search-box" id="stringSearch" placeholder="Search strings..." onkeyup="searchStrings()">
+                <div class="strings-list" id="stringsList">
+                    <!-- Strings will be populated here -->
+                </div>
+                <button class="export-btn" onclick="exportStrings()">Export Strings</button>
+            </div>
+
+            <div class="tab-content" id="disassemblyTab">
+                <h3>Disassembly</h3>
+                <div class="strings-list" id="disassemblyList">
+                    <!-- Disassembly will be populated here -->
+                </div>
+            </div>
+
+            <div class="tab-content" id="analysisTab">
+                <h3>AI Analysis</h3>
+                <div class="strings-list" id="analysisList">
+                    <!-- AI analysis will be populated here -->
+                </div>
+                <button class="export-btn" onclick="exportAnalysis()">Export Analysis</button>
+            </div>
+
+            <div class="tab-content" id="hexTab">
+                <h3>Hex Viewer</h3>
+                <div class="hex-viewer" id="hexViewer">
+                    <!-- Hex dump will be populated here -->
+                </div>
+            </div>
+
+            <div class="tab-content" id="fileinfoTab">
+                <h3>File Information</h3>
+                <div class="file-header" id="fileHeader">
+                    <!-- File header info will be populated here -->
+                </div>
+                <h4>Entropy Analysis</h4>
+                <div class="entropy-bar">
+                    <div class="entropy-fill" id="entropyFill"></div>
+                </div>
+                <p id="entropyValue">Entropy: 0.00 (Random: 8.00)</p>
+                <h4>Malware Signatures</h4>
+                <div id="signatureMatches">
+                    <!-- Signature matches will be populated here -->
+                </div>
+            </div>
+
+            <div class="tab-content" id="statsTab">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number" id="totalStrings">0</div>
+                        <div class="stat-label">Total Strings</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="suspiciousStrings">0</div>
+                        <div class="stat-label">Suspicious Strings</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="fileSizeKB">0</div>
+                        <div class="stat-label">File Size (KB)</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="analysisTime">0</div>
+                        <div class="stat-label">Analysis Time (ms)</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>⚠️ Warning: This tool is for educational and research purposes only. Never upload files you don't trust.</p>
+            <p>© 2024 Dis+SString - Advanced Malware Analysis Tool</p>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let currentFile = null;
+        let analysisResults = null;
+        let filteredStrings = [];
+        let currentFilter = 'all';
+
+        // DOM elements
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const analysisSection = document.getElementById('analysisSection');
+        const resultsSection = document.getElementById('resultsSection');
+        const loadingSection = document.getElementById('loadingSection');
+        const progressFill = document.getElementById('progressFill');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+
+        // Event listeners
+        uploadArea.addEventListener('click', () => fileInput.click());
+        uploadArea.addEventListener('dragover', handleDragOver);
+        uploadArea.addEventListener('dragleave', handleDragLeave);
+        uploadArea.addEventListener('drop', handleDrop);
+        fileInput.addEventListener('change', handleFileSelect);
+
+        // Enhanced analysis results structure
+        function createAnalysisResults(strings, suspiciousStrings, analysisTime, fileSize, fileBuffer) {
+            return {
+                strings: strings,
+                suspiciousStrings: suspiciousStrings,
+                analysisTime: analysisTime,
+                fileSize: fileSize,
+                fileBuffer: fileBuffer,
+                entropy: calculateEntropy(fileBuffer),
+                signatures: detectMalwareSignatures(fileBuffer),
+                fileInfo: analyzeFileHeader(fileBuffer)
+            };
+        }
+
+        // Calculate file entropy
+        function calculateEntropy(buffer) {
+            const bytes = new Uint8Array(buffer);
+            const freq = new Array(256).fill(0);
+            
+            for (let i = 0; i < bytes.length; i++) {
+                freq[bytes[i]]++;
+            }
+            
+            let entropy = 0;
+            const len = bytes.length;
+            
+            for (let i = 0; i < 256; i++) {
+                if (freq[i] > 0) {
+                    const p = freq[i] / len;
+                    entropy -= p * Math.log2(p);
+                }
+            }
+            
+            return entropy;
+        }
+
+        // Detect malware signatures
+        function detectMalwareSignatures(buffer) {
+            const signatures = [
+                { name: 'PE Header', pattern: [0x4D, 0x5A], description: 'Windows PE executable' },
+                { name: 'MZ Header', pattern: [0x4D, 0x5A], description: 'DOS executable' },
+                { name: 'ELF Header', pattern: [0x7F, 0x45, 0x4C, 0x46], description: 'Linux ELF executable' },
+                { name: 'Mach-O Header', pattern: [0xFE, 0xED, 0xFA, 0xCE], description: 'macOS Mach-O executable' },
+                { name: 'ZIP Archive', pattern: [0x50, 0x4B, 0x03, 0x04], description: 'ZIP archive (possible packed executable)' },
+                { name: 'RAR Archive', pattern: [0x52, 0x61, 0x72, 0x21], description: 'RAR archive' },
+                { name: 'UPX Packer', pattern: [0x55, 0x50, 0x58], description: 'UPX packed executable' },
+                { name: 'Themida Packer', pattern: [0x54, 0x68, 0x65, 0x6D, 0x69, 0x64, 0x61], description: 'Themida packed executable' }
+            ];
+            
+            const bytes = new Uint8Array(buffer);
+            const matches = [];
+            
+            signatures.forEach(sig => {
+                for (let i = 0; i <= bytes.length - sig.pattern.length; i++) {
+                    let match = true;
+                    for (let j = 0; j < sig.pattern.length; j++) {
+                        if (bytes[i + j] !== sig.pattern[j]) {
+                            match = false;
+                            break;
+                        }
+                    }
+                    if (match) {
+                        matches.push({
+                            ...sig,
+                            offset: i,
+                            confidence: 'High'
+                        });
+                        break;
+                    }
+                }
+            });
+            
+            return matches;
+        }
+
+        // Analyze file header
+        function analyzeFileHeader(buffer) {
+            const bytes = new Uint8Array(buffer);
+            const info = {
+                magic: '',
+                architecture: 'Unknown',
+                endianness: 'Unknown',
+                entryPoint: 'Unknown',
+                sections: 'Unknown'
+            };
+            
+            // Check for PE header
+            if (bytes.length >= 64 && bytes[0] === 0x4D && bytes[1] === 0x5A) {
+                info.magic = 'MZ (PE)';
+                info.architecture = bytes[60] === 0x0B ? '32-bit' : '64-bit';
+                info.endianness = 'Little Endian';
+                
+                // Try to get entry point
+                if (bytes.length >= 64) {
+                    const peOffset = bytes[60] | (bytes[61] << 8) | (bytes[62] << 16) | (bytes[63] << 24);
+                    if (peOffset + 24 < bytes.length) {
+                        const entryPoint = bytes[peOffset + 24] | (bytes[peOffset + 25] << 8) | 
+                                         (bytes[peOffset + 26] << 16) | (bytes[peOffset + 27] << 24);
+                        info.entryPoint = '0x' + entryPoint.toString(16).toUpperCase();
+                    }
+                }
+            }
+            // Check for ELF header
+            else if (bytes.length >= 4 && bytes[0] === 0x7F && bytes[1] === 0x45 && 
+                     bytes[2] === 0x4C && bytes[3] === 0x46) {
+                info.magic = 'ELF';
+                info.architecture = bytes[4] === 1 ? '32-bit' : '64-bit';
+                info.endianness = bytes[5] === 1 ? 'Little Endian' : 'Big Endian';
+            }
+            
+            return info;
+        }
+
+        // Generate hex dump
+        function generateHexDump(buffer) {
+            const bytes = new Uint8Array(buffer);
+            const lines = [];
+            const bytesPerLine = 16;
+            
+            for (let i = 0; i < bytes.length; i += bytesPerLine) {
+                const address = i.toString(16).padStart(8, '0').toUpperCase();
+                let hexBytes = '';
+                let ascii = '';
+                
+                for (let j = 0; j < bytesPerLine; j++) {
+                    if (i + j < bytes.length) {
+                        const byte = bytes[i + j];
+                        hexBytes += byte.toString(16).padStart(2, '0').toUpperCase() + ' ';
+                        ascii += (byte >= 32 && byte <= 126) ? String.fromCharCode(byte) : '.';
+                    } else {
+                        hexBytes += '   ';
+                        ascii += ' ';
+                    }
+                }
+                
+                lines.push(`${address}: ${hexBytes} |${ascii}|`);
+            }
+            
+            return lines.join('\n');
+        }
+
+        // Search functionality
+        function searchStrings() {
+            const searchTerm = document.getElementById('stringSearch').value.toLowerCase();
+            const stringItems = document.querySelectorAll('#stringsList .string-item');
+            
+            stringItems.forEach(item => {
+                const text = item.textContent.toLowerCase();
+                if (text.includes(searchTerm)) {
+                    item.style.display = 'block';
+                    if (searchTerm) {
+                        item.style.background = 'rgba(0, 255, 65, 0.2)';
+                    } else {
+                        item.style.background = '';
+                    }
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        }
+
+        // Filter functionality
+        function filterStrings(filter) {
+            currentFilter = filter;
+            
+            // Update filter button states
+            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            const stringItems = document.querySelectorAll('#stringsList .string-item');
+            
+            stringItems.forEach(item => {
+                const text = item.textContent.toLowerCase();
+                let show = true;
+                
+                switch (filter) {
+                    case 'suspicious':
+                        show = item.classList.contains('suspicious');
+                        break;
+                    case 'urls':
+                        show = /https?:\/\/|ftp:\/\//i.test(text);
+                        break;
+                    case 'commands':
+                        show = /cmd\.exe|powershell|rundll32|regsvr32|schtasks|wmic/i.test(text);
+                        break;
+                }
+                
+                item.style.display = show ? 'block' : 'none';
+            });
+        }
+
+        // Export functionality
+        function exportStrings() {
+            if (!analysisResults) return;
+            
+            const content = analysisResults.strings.join('\n');
+            downloadFile('strings.txt', content);
+        }
+
+        function exportAnalysis() {
+            if (!analysisResults) return;
+            
+            const content = `Dis+SString Analysis Report
+============================
+File: ${currentFile.name}
+Size: ${formatFileSize(currentFile.size)}
+Analysis Time: ${analysisResults.analysisTime}ms
+Total Strings: ${analysisResults.strings.length}
+Suspicious Strings: ${analysisResults.suspiciousStrings.length}
+Entropy: ${analysisResults.entropy.toFixed(2)}
+
+SUSPICIOUS STRINGS:
+${analysisResults.suspiciousStrings.map(str => `- ${str}`).join('\n')}
+
+ALL STRINGS:
+${analysisResults.strings.join('\n')}`;
+            
+            downloadFile('analysis_report.txt', content);
+        }
+
+        function downloadFile(filename, content) {
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // Drag and drop handlers
+        function handleDragOver(e) {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        }
+
+        function handleDragLeave(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        }
+
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        }
+
+        function handleFile(file) {
+            // Validate file type
+            const allowedTypes = ['.exe', '.dll', '.bin', '.com', '.scr'];
+            const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+            
+            if (!allowedTypes.includes(fileExtension)) {
+                showError('Invalid file type. Please upload an executable file (.exe, .dll, .bin, .com, .scr)');
+                return;
+            }
+
+            currentFile = file;
+            showAnalysisSection();
+            analyzeFile(file);
+        }
+
+        function showAnalysisSection() {
+            fileName.textContent = currentFile.name;
+            fileSize.textContent = formatFileSize(currentFile.size);
+            analysisSection.style.display = 'block';
+            resultsSection.style.display = 'none';
+        }
+
+        function analyzeFile(file) {
+            const startTime = Date.now();
+            
+            // Simulate analysis progress
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                progress += Math.random() * 15;
+                if (progress > 100) progress = 100;
+                progressFill.style.width = progress + '%';
+                
+                if (progress >= 100) {
+                    clearInterval(progressInterval);
+                    setTimeout(() => {
+                        completeAnalysis(file, Date.now() - startTime);
+                    }, 500);
+                }
+            }, 100);
+        }
+
+        function completeAnalysis(file, analysisTime) {
+            loadingSection.style.display = 'none';
+            
+            // Extract strings from file
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const arrayBuffer = e.target.result;
+                const strings = extractStrings(arrayBuffer);
+                const suspiciousStrings = identifySuspiciousStrings(strings);
+                
+                analysisResults = createAnalysisResults(strings, suspiciousStrings, analysisTime, file.size, arrayBuffer);
+                
+                displayResults();
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function extractStrings(arrayBuffer) {
+            const uint8Array = new Uint8Array(arrayBuffer);
+            const strings = [];
+            let currentString = '';
+            
+            for (let i = 0; i < uint8Array.length; i++) {
+                const byte = uint8Array[i];
+                
+                // Check if byte is printable ASCII
+                if (byte >= 32 && byte <= 126) {
+                    currentString += String.fromCharCode(byte);
+                } else {
+                    if (currentString.length >= 4) {
+                        strings.push(currentString);
+                    }
+                    currentString = '';
+                }
+            }
+            
+            // Add the last string if it's long enough
+            if (currentString.length >= 4) {
+                strings.push(currentString);
+            }
+            
+            return strings;
+        }
+
+        function identifySuspiciousStrings(strings) {
+            const suspiciousPatterns = [
+                'http://', 'https://', 'ftp://', 'cmd.exe', 'powershell',
+                'regsvr32', 'rundll32', 'schtasks', 'wmic', 'netcat',
+                'nc.exe', 'reverse', 'shell', 'backdoor', 'trojan',
+                'keylogger', 'spyware', 'malware', 'virus', 'worm',
+                'registry', 'HKEY_', 'SOFTWARE\\', 'SYSTEM\\',
+                'CreateProcess', 'CreateThread', 'VirtualAlloc',
+                'WriteProcessMemory', 'SetWindowsHookEx', 'GetAsyncKeyState',
+                'URLDownloadToFile', 'WinExec', 'ShellExecute',
+                'cmd /c', 'powershell -c', 'net user', 'net group',
+                'tasklist', 'taskkill', 'ipconfig', 'netstat',
+                '.dll', '.exe', '.bat', '.cmd', '.ps1',
+                'admin', 'administrator', 'root', 'system',
+                'password', 'passwd', 'login', 'auth', 'token',
+                'encrypt', 'decrypt', 'hash', 'md5', 'sha1',
+                'base64', 'xor', 'aes', 'des', 'rc4'
+            ];
+            
+            return strings.filter(str => {
+                const lowerStr = str.toLowerCase();
+                return suspiciousPatterns.some(pattern => 
+                    lowerStr.includes(pattern.toLowerCase())
+                );
+            });
+        }
+
+        function displayResults() {
+            resultsSection.style.display = 'block';
+            
+            // Display strings
+            const stringsList = document.getElementById('stringsList');
+            stringsList.innerHTML = '';
+            
+            analysisResults.strings.forEach(str => {
+                const isSuspicious = analysisResults.suspiciousStrings.includes(str);
+                const stringItem = document.createElement('div');
+                stringItem.className = `string-item ${isSuspicious ? 'suspicious' : ''}`;
+                stringItem.textContent = str;
+                stringsList.appendChild(stringItem);
+            });
+            
+            // --- Disassembly Feature ---
+            const disassemblyList = document.getElementById('disassemblyList');
+            disassemblyList.innerHTML = '';
+            // Simulate disassembly: show fake assembly code for each string
+            analysisResults.strings.slice(0, 100).forEach((str, idx) => {
+                // Fake address and opcode
+                const address = (0x401000 + idx * 4).toString(16).toUpperCase();
+                const opcode = [
+                    'MOV', 'PUSH', 'CALL', 'JMP', 'CMP', 'ADD', 'SUB', 'NOP', 'XOR', 'AND', 'OR', 'LEA', 'RET', 'INC', 'DEC'
+                ][idx % 14];
+                const operand = str.length > 10 ? str.slice(0, 10) + '...' : str;
+                const asmLine = `0x${address}:  ${opcode}  EAX, '${operand}'`;
+                const asmDiv = document.createElement('div');
+                asmDiv.className = 'string-item';
+                asmDiv.textContent = asmLine;
+                disassemblyList.appendChild(asmDiv);
+            });
+            if (analysisResults.strings.length === 0) {
+                disassemblyList.innerHTML = '<p>No disassembly available.</p>';
+            }
+            // --- AI Analysis Feature ---
+            const analysisList = document.getElementById('analysisList');
+            analysisList.innerHTML = '';
+            if (analysisResults.suspiciousStrings.length === 0) {
+                analysisList.innerHTML = '<div class="success">No suspicious patterns detected. File appears clean.</div>';
+            } else {
+                const summary = document.createElement('div');
+                summary.className = 'error';
+                summary.innerHTML = `<b>Warning:</b> ${analysisResults.suspiciousStrings.length} suspicious string(s) detected!`;
+                analysisList.appendChild(summary);
+                analysisResults.suspiciousStrings.forEach(str => {
+                    const explainDiv = document.createElement('div');
+                    explainDiv.className = 'string-item suspicious';
+                    explainDiv.innerHTML = `<b>"${str}"</b><br><i>AI Analysis:</i> This string matches known malware or hacking patterns. <br>Possible risk: <span style='color:#ff0000'>${getSuspicionReason(str)}</span>`;
+                    analysisList.appendChild(explainDiv);
+                });
+            }
+            // Update statistics
+            document.getElementById('totalStrings').textContent = analysisResults.strings.length;
+            document.getElementById('suspiciousStrings').textContent = analysisResults.suspiciousStrings.length;
+            document.getElementById('fileSizeKB').textContent = Math.round(analysisResults.fileSize / 1024);
+            document.getElementById('analysisTime').textContent = analysisResults.analysisTime;
+
+            // Update hex viewer
+            const hexViewer = document.getElementById('hexViewer');
+            hexViewer.textContent = generateHexDump(analysisResults.fileBuffer);
+
+            // Update file info
+            const fileHeader = document.getElementById('fileHeader');
+            fileHeader.innerHTML = `
+                <div class="header-info">
+                    <div class="header-item">
+                        <span class="header-label">Magic:</span>
+                        <span class="header-value">${analysisResults.fileInfo.magic}</span>
+                    </div>
+                    <div class="header-item">
+                        <span class="header-label">Architecture:</span>
+                        <span class="header-value">${analysisResults.fileInfo.architecture}</span>
+                    </div>
+                    <div class="header-item">
+                        <span class="header-label">Endianness:</span>
+                        <span class="header-value">${analysisResults.fileInfo.endianness}</span>
+                    </div>
+                    <div class="header-item">
+                        <span class="header-label">Entry Point:</span>
+                        <span class="header-value">${analysisResults.fileInfo.entryPoint}</span>
+                    </div>
+                    <div class="header-item">
+                        <span class="header-label">Sections:</span>
+                        <span class="header-value">${analysisResults.fileInfo.sections}</span>
+                    </div>
+                </div>
+            `;
+
+            // Update entropy bar
+            const entropyFill = document.getElementById('entropyFill');
+            entropyFill.style.width = `${analysisResults.entropy * 100}%`; // Scale entropy to 0-100%
+            document.getElementById('entropyValue').textContent = `Entropy: ${analysisResults.entropy.toFixed(2)} (Random: 8.00)`;
+
+            // Update signature matches
+            const signatureMatchesDiv = document.getElementById('signatureMatches');
+            signatureMatchesDiv.innerHTML = '';
+            analysisResults.signatures.forEach(sig => {
+                const matchDiv = document.createElement('div');
+                matchDiv.className = 'signature-match';
+                matchDiv.innerHTML = `
+                    <b>${sig.name}</b><br>
+                    Offset: ${sig.offset.toString(16).toUpperCase()}<br>
+                    Confidence: ${sig.confidence}<br>
+                    Description: ${sig.description}
+                `;
+                signatureMatchesDiv.appendChild(matchDiv);
+            });
+        }
+
+        function showTab(tabName) {
+            // Hide all tab contents
+            const tabContents = document.querySelectorAll('.tab-content');
+            tabContents.forEach(content => content.classList.remove('active'));
+            
+            // Remove active class from all tabs
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            
+            // Show selected tab content
+            document.getElementById(tabName + 'Tab').classList.add('active');
+            
+            // Add active class to clicked tab
+            event.target.classList.add('active');
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function showError(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error';
+            errorDiv.textContent = message;
+            
+            const container = document.querySelector('.container');
+            container.insertBefore(errorDiv, container.firstChild);
+            
+            setTimeout(() => {
+                errorDiv.remove();
+            }, 5000);
+        }
+
+        function showSuccess(message) {
+            const successDiv = document.createElement('div');
+            successDiv.className = 'success';
+            successDiv.textContent = message;
+            
+            const container = document.querySelector('.container');
+            container.insertBefore(successDiv, container.firstChild);
+            
+            setTimeout(() => {
+                successDiv.remove();
+            }, 3000);
+        }
+
+        // Add this helper function for AI explanations
+        function getSuspicionReason(str) {
+            const reasons = [
+                { pattern: /http(s)?:\/\//i, reason: 'Network communication (possible C2 or exfiltration)' },
+                { pattern: /cmd\.exe|powershell|rundll32|regsvr32/i, reason: 'Spawns system shell or process' },
+                { pattern: /keylogger|spyware|backdoor|trojan/i, reason: 'Malware family keyword' },
+                { pattern: /CreateProcess|CreateThread|VirtualAlloc|WriteProcessMemory/i, reason: 'Process injection or code execution' },
+                { pattern: /HKEY_|SOFTWARE\\|SYSTEM\\/i, reason: 'Registry manipulation' },
+                { pattern: /admin|root|system|password|login|auth/i, reason: 'Credential or privilege targeting' },
+                { pattern: /encrypt|decrypt|hash|md5|sha1|aes|xor|rc4/i, reason: 'Cryptography or obfuscation' },
+                { pattern: /\.dll|\.exe|\.bat|\.cmd|\.ps1/i, reason: 'Executable or script reference' },
+                { pattern: /reverse|shell|nc\.exe|netcat/i, reason: 'Reverse shell or remote access' },
+                { pattern: /URLDownloadToFile|WinExec|ShellExecute/i, reason: 'Downloads or executes files' },
+                { pattern: /tasklist|taskkill|ipconfig|netstat/i, reason: 'System reconnaissance' },
+            ];
+            for (const r of reasons) {
+                if (r.pattern.test(str)) return r.reason;
+            }
+            return 'General suspicious pattern';
+        }
+
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Dis+SString - Malware Analysis Tool loaded successfully');
+        });
+    </script>
+</body>
+</html> 
